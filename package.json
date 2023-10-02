@@ -1,0 +1,22 @@
+{
+  "name": "flappy-pixi",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT",
+  "dependencies": {
+    "@orbs-network/ton-access": "^2.3.3",
+    "@ton/core": "^0.52.2",
+    "@ton/crypto": "^3.2.0",
+    "@ton/ton": "^13.7.0",
+    "@tonconnect/ui": "^2.0.0-beta.2",
+    "buffer": "^6.0.3",
+    "pixi.js": "^7.3.1"
+  },
+  "devDependencies": {
+    "ts-loader": "^9.4.4",
+    "typescript": "^5.2.2",
+    "webpack": "^5.88.2",
+    "webpack-cli": "^5.1.4",
+    "webpack-dev-server": "^4.15.1"
+  }
+}
