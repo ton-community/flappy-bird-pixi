@@ -1,5 +1,7 @@
 const path = require('path');
 const webpack = require('webpack');
+const HtmlWebpackPlugin = require('html-webpack-plugin');
+const CopyPlugin = require("copy-webpack-plugin");
 
 module.exports = {
   entry: './src/index.ts',
@@ -10,6 +12,14 @@ module.exports = {
         use: 'ts-loader',
         exclude: /node_modules/,
       },
+      {
+        test: /\.(png|svg|fft)$/,
+        type: 'asset/resource',
+      },
+      {
+        test: /\.html$/i,
+        loader: 'html-loader',
+      },
     ],
   },
   resolve: {
@@ -18,6 +28,8 @@ module.exports = {
   output: {
     filename: 'bundle.js',
     path: path.resolve(__dirname, 'dist'),
+    assetModuleFilename: "assets/[hash][ext][query]",
+    clean: true,
   },
   devServer: {
     static: path.join(__dirname, 'dist'),
@@ -33,6 +45,14 @@ module.exports = {
   plugins: [
     new webpack.ProvidePlugin({
       Buffer: ['buffer', 'Buffer'],
+    }),
+    new CopyPlugin({
+      patterns: [
+        { from: "assets", to: "assets" },
+      ],
+    }),
+    new HtmlWebpackPlugin({
+      template: './index.html',
     }),
   ],
   mode: 'production',
