@@ -1,7 +1,8 @@
 import { Application, Sprite, Texture, TilingSprite } from 'pixi.js';
 import { TonClient4, Address, beginCell } from '@ton/ton';
 import { TonConnectUI } from '@tonconnect/ui';
-import { getHttpV4Endpoint } from '@orbs-network/ton-access';
+import {getHttpV4Endpoint, Network} from '@orbs-network/ton-access';
+import { environment } from "./environments/environment";
 
 (window as any).Telegram.WebApp.expand();
 
@@ -240,6 +241,7 @@ async function submitPlayed(score: number) {
         }),
         headers: {
             'content-type': 'application/json',
+            'ngrok-skip-browser-warning': 'true'
         },
         method: 'POST',
     })).json();
@@ -251,13 +253,13 @@ const tc = new TonConnectUI({
 
 const PIPES_AVAILABLE = ['pipe-green', 'pipe-red'];
 const PIPES_COSTS = [0, 1];
-const ENDPOINT = 'https://flappy.krigga.dev';
-const TOKEN_RECIPIENT = 'EQBb7bFnXnKAN1DNO3GPKLXPNiEyi4U6-805Y-aBkgJtK_lJ';
-const TOKEN_MASTER = 'EQBcRUiCkgdfnbnKKYhnPXkNi9BXkq_5uLGRuvnwwaZzelit';
-const NETWORK = 'testnet';
-
 const SHOP_RELOAD_INTERVAL = 10000;
 const BALANCE_RELOAD_INTERVAL = 10000;
+
+const ENDPOINT = environment.ENDPOINT;
+// const TOKEN_RECIPIENT = environment.TOKEN_RECIPIENT;
+// const TOKEN_MASTER = environment.TOKEN_MASTER;
+// const NETWORK = environment.NETWORK;
 
 class UI {
     scoreDiv: HTMLDivElement = document.getElementById('score') as HTMLDivElement;
@@ -316,6 +318,8 @@ class UI {
     // TODO: FIX ME - INCONSISTENT BETWEEN SERVER AND CLIENT
     async getJettonWallet() {
         if (this.jettonWallet === undefined) {
+            const TOKEN_MASTER = await this.getTokenMinter();
+
             const client = await this.getClient();
             if (tc.account === null) {
                 throw new Error('No account');
@@ -334,6 +338,8 @@ class UI {
 
     async getClient() {
         if (this.client === undefined) {
+            const NETWORK = await this.getNetwork();
+
             this.client = new TonClient4({
                 endpoint: await getHttpV4Endpoint({ network: NETWORK }),
             });
@@ -342,16 +348,18 @@ class UI {
     }
 
     async buy(itemId: number) {
-        await tc.sendTransaction({
-            validUntil: Math.floor(Date.now() / 1000) + 3600,
-            messages: [
-                {
-                    address: (await this.getJettonWallet()).toString(),
-                    amount: '50000000',
-                    payload: beginCell().storeUint(0x0f8a7ea5, 32).storeUint(0, 64).storeCoins(PIPES_COSTS[this.previewPipeIndex]).storeAddress(Address.parse(TOKEN_RECIPIENT)).storeAddress(Address.parse(tc.account!.address)).storeMaybeRef(undefined).storeCoins(1).storeMaybeRef(beginCell().storeUint(0, 32).storeStringTail((window as any).Telegram.WebApp.initDataUnsafe.user.id + ':' + itemId)).endCell().toBoc().toString('base64'),
-                },
-            ],
-        })
+      const TOKEN_RECIPIENT = await this.getTokenRecipient();
+
+      await tc.sendTransaction({
+        validUntil: Math.floor(Date.now() / 1000) + 3600,
+        messages: [
+          {
+            address: (await this.getJettonWallet()).toString(),
+            amount: '50000000',
+            payload: beginCell().storeUint(0x0f8a7ea5, 32).storeUint(0, 64).storeCoins(PIPES_COSTS[this.previewPipeIndex]).storeAddress(Address.parse(TOKEN_RECIPIENT)).storeAddress(Address.parse(tc.account!.address)).storeMaybeRef(undefined).storeCoins(1).storeMaybeRef(beginCell().storeUint(0, 32).storeStringTail((window as any).Telegram.WebApp.initDataUnsafe.user.id + ':' + itemId)).endCell().toBoc().toString('base64'),
+          },
+        ],
+      })
     }
 
     constructor() {
@@ -454,7 +462,13 @@ class UI {
         this.reloadShopTimeout = undefined;
 
         try {
-            const purchasesData = await (await fetch(ENDPOINT + '/purchases?auth=' + encodeURIComponent((window as any).Telegram.WebApp.initData))).json();
+            const purchasesData = await (
+              await fetch(ENDPOINT + '/purchases?auth=' + encodeURIComponent((window as any).Telegram.WebApp.initData), {
+                headers: {
+                  'ngrok-skip-browser-warning': 'true'
+                }
+              })
+            ).json();
             if (!this.shopShown) return;
             if (!purchasesData.ok) throw new Error('Unsuccessful');
 
@@ -466,13 +480,55 @@ class UI {
         this.reloadShopTimeout = setTimeout(() => this.reloadPurchases(), SHOP_RELOAD_INTERVAL);
     }
 
+    async getConfig(): Promise<{
+      ok: false
+    } | {
+      ok: true,
+      config: {
+        network: Network,
+        tokenMinter: string,
+        tokenRecipient: string,
+        achievementCollection: Record<string, string>,
+      }
+    }> {
+      return await (await fetch(ENDPOINT + '/config', {
+        headers: {
+          'ngrok-skip-browser-warning': 'true'
+        }
+      })).json();
+    }
+
+    async getNetwork(): Promise<Network> {
+        const config = await this.getConfig();
+        if (!config.ok) throw new Error('Unsuccessful');
+        return config.config.network;
+    }
+
+    async getTokenMinter(): Promise<string> {
+        const config = await this.getConfig();
+        if (!config.ok) throw new Error('Unsuccessful');
+        return config.config.tokenMinter;
+    }
+
+    async getTokenRecipient(): Promise<string> {
+        const config = await this.getConfig();
+        if (!config.ok) throw new Error('Unsuccessful');
+        return config.config.tokenRecipient;
+    }
+
     async showShop() {
         this.afterGameDiv.style.display = 'none';
         this.hideMain();
         this.showLoading();
 
         try {
-            const purchasesData = await (await fetch(ENDPOINT + '/purchases?auth=' + encodeURIComponent((window as any).Telegram.WebApp.initData))).json();
+            const purchasesData = await (
+              await fetch(ENDPOINT + '/purchases?auth=' + encodeURIComponent((window as any).Telegram.WebApp.initData), {
+                headers: {
+                  'ngrok-skip-browser-warning': 'true'
+                }
+              })
+            ).json();
             if (!purchasesData.ok) throw new Error('Unsuccessful');
 
             this.hideLoading();
