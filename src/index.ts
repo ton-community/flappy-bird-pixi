@@ -384,8 +384,8 @@ class UI {
             if (this.shopShown) this.hideShop();
             else this.showShop();
         });
-        this.connectDiv.addEventListener('click', () => {
-            tc.connectWallet();
+        this.connectDiv.addEventListener('click', async () => {
+            await tc.openModal();
         });
     }
 
